@@ -79,5 +79,30 @@ npm run dev
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
 
+## 受控共享（controlled_sharing）
+
+面向「分群团队 → 实验团队」的受控数据共享，代码入口：
+
+- 后端：`backend/app/services/controlled_sharing.py`、
+  `backend/app/routers/sharing.py`、`backend/tests/test_controlled_sharing.py`
+- 前端：`frontend/src/views/ControlledSharingView.vue`、
+  `frontend/src/api/sharing.ts`（导航入口 `/controlled_sharing`）
+
+安全边界与业务规则：
+
+1. 分群团队对用户分群发起共享授权（`POST /api/sharing/grants`），授权生效时
+   由成员明细**聚合**出「授权实验汇总」，只保存群组人数，不含任何个人资料；
+   成员明细仍只存在分群团队的 cohort snapshot 中。
+2. 实验团队只能查看获准的授权实验汇总（`GET /api/sharing/summaries`）；
+   接收方请求成员名单（`POST /api/sharing/cohorts/{id}/member-roster`）一律
+   返回 400，仅 `分群团队` 可读取明细。
+3. 实验评估（`/api/sharing/evaluations`）分别绑定对照组/实验组授权，逐组在
+   **同一有效授权边界**内确认，两组都确认后才具备生成资格并输出实验组/对照组
+   比例，同时留档两边实际获得的汇总范围。
+4. 分群负责人可撤回授权（`POST /api/sharing/grants/{id}/revoke`）：授权与汇总
+   立即失效，进行中的评估级联转为「失去资格」且不能再发起新一轮；撤回后新的
+   试验绑定过期授权会被直接拒绝，重新授权会生成新的授权 ID，旧权限不复用。
+
+
 领域：数据工程
 子方向：数据分析与数据应用

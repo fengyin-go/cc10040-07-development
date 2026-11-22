@@ -9,7 +9,7 @@ import time
 import threading
 from typing import Any
 
-from app.seed import SEED_ROWS
+from app.seed import SEED_ROWS, build_seed_cohort_snapshots
 
 
 class Store:
@@ -23,7 +23,11 @@ class Store:
         # Cross-module journal
         self._query_log: list[dict[str, Any]] = []
         # Cohort snapshots
-        self._cohort_snapshots: dict[str, list[dict[str, Any]]] = {}
+        self._cohort_snapshots: dict[str, list[dict[str, Any]]] = build_seed_cohort_snapshots()
+        # Controlled sharing: grants / authorized experiment summaries / evaluations
+        self._sharing_grants: list[dict[str, Any]] = []
+        self._experiment_summaries: list[dict[str, Any]] = []
+        self._experiment_evaluations: list[dict[str, Any]] = []
         # Anomaly records
         self._anomaly_records: list[dict[str, Any]] = []
         # Recalc history
@@ -137,6 +141,70 @@ class Store:
 
     def get_cohort_snapshot(self, cohort_id: int) -> list[dict[str, Any]] | None:
         return self._cohort_snapshots.get(str(cohort_id))
+
+    # ── Controlled sharing operations ──
+    # 受控共享只在内存仓库里保存授权记录、授权实验汇总和评估记录；
+    # 成员明细仍只存在于 _cohort_snapshots，绝不复制到共享域。
+
+    def sharing_grants(self) -> list[dict[str, Any]]:
+        return self._sharing_grants
+
+    def experiment_summaries(self) -> list[dict[str, Any]]:
+        return self._experiment_summaries
+
+    def experiment_evaluations(self) -> list[dict[str, Any]]:
+        return self._experiment_evaluations
+
+    def find_sharing_grant(self, grant_id: int) -> dict[str, Any] | None:
+        return next(
+            (row for row in self._sharing_grants if int(row.get("id", 0)) == grant_id),
+            None,
+        )
+
+    def find_active_grant(self, cohort_id: int, recipient_team: str) -> dict[str, Any] | None:
+        return next(
+            (row for row in self._sharing_grants
+             if int(row.get("cohort_id", 0)) == cohort_id
+             and row.get("recipient_team") == recipient_team
+             and row.get("status") == "有效"),
+            None,
+        )
+
+    def find_summary(self, summary_id: int) -> dict[str, Any] | None:
+        return next(
+            (row for row in self._experiment_summaries if int(row.get("id", 0)) == summary_id),
+            None,
+        )
+
+    def find_evaluation(self, evaluation_id: int) -> dict[str, Any] | None:
+        return next(
+            (row for row in self._experiment_evaluations
+             if int(row.get("id", 0)) == evaluation_id),
+            None,
+        )
+
+    def append_sharing_grant(self, grant: dict[str, Any]) -> dict[str, Any]:
+        grant["id"] = self.next_sharing_id("grant")
+        self._sharing_grants.append(grant)
+        return grant
+
+    def append_summary(self, summary: dict[str, Any]) -> dict[str, Any]:
+        summary["id"] = self.next_sharing_id("summary")
+        self._experiment_summaries.append(summary)
+        return summary
+
+    def append_evaluation(self, evaluation: dict[str, Any]) -> dict[str, Any]:
+        evaluation["id"] = self.next_sharing_id("evaluation")
+        self._experiment_evaluations.append(evaluation)
+        return evaluation
+
+    def next_sharing_id(self, kind: str) -> int:
+        table = {
+            "grant": self._sharing_grants,
+            "summary": self._experiment_summaries,
+            "evaluation": self._experiment_evaluations,
+        }[kind]
+        return max((int(row.get("id", 0)) for row in table), default=0) + 1
 
     # ── Anomaly detection operations ──
 

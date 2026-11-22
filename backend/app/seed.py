@@ -300,7 +300,25 @@ SEED_ROWS: dict[str, list[dict[str, Any]]] = {
   '分群条件': '用户分群样例3',
   '群组大小': '用户分群样例3',
   '更新频率': '用户分群样例3',
-  '最近更新时间': '2026-09-03'}],
+  '最近更新时间': '2026-09-03'},
+ {'id': 4,
+  'status': '已生成',
+  'pending': False,
+  'abnormal': False,
+  '分群名称': '高价值付费用户群',
+  '分群条件': '近30天付费金额>500且活跃天数>=10',
+  '群组大小': '1200',
+  '更新频率': '每日',
+  '最近更新时间': '2026-11-20'},
+ {'id': 5,
+  'status': '已生成',
+  'pending': False,
+  'abnormal': False,
+  '分群名称': '新注册活跃用户群',
+  '分群条件': '注册<=14天且近7天登录>=3次',
+  '群组大小': '800',
+  '更新频率': '每日',
+  '最近更新时间': '2026-11-21'}],
     "anomaly_detector": [{'id': 1,
   'status': '待启用',
   'pending': True,
@@ -545,3 +563,28 @@ SEED_ROWS: dict[str, list[dict[str, Any]]] = {
   '中间表': '字段血缘样例3',
   '血缘深度': '字段血缘样例3'}]
 }
+
+
+def build_seed_cohort_snapshots() -> dict[str, list[dict[str, Any]]]:
+    """构造受控共享演示分群的成员快照。
+
+    成员资料属于分群团队的私有数据，只进入内存仓库的 cohort snapshot 区；
+    受控共享对外只暴露聚合后的群组人数，不复制任何成员明细。
+    """
+    snapshots: dict[str, list[dict[str, Any]]] = {}
+    demo_cohorts = {
+        4: ("高价值付费用户群", 1200),
+        5: ("新注册活跃用户群", 800),
+    }
+    for cohort_id, (name, size) in demo_cohorts.items():
+        snapshots[str(cohort_id)] = [
+            {
+                "user_id": f"{name[:2]}-{index + 10001}",
+                "name": f"{name}成员{index + 1}",
+                "cohort": name,
+                "join_time": "2026-11-15",
+            }
+            for index in range(size)
+        ]
+    return snapshots
+

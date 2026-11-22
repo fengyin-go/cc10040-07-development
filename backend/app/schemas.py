@@ -29,3 +29,30 @@ class EntryPayload(BaseModel):
 class ActionPayload(BaseModel):
     action: str
     remark: str | None = None
+
+
+class GrantPayload(BaseModel):
+    cohort_id: int
+    recipient_team: str
+    owner: str
+    scope: str = "仅群组人数（授权实验汇总）"
+
+
+class RevokePayload(BaseModel):
+    revoked_by: str
+    reason: str = ""
+
+
+class EvaluationPayload(BaseModel):
+    experiment_name: str
+    control_grant_id: int
+    treatment_grant_id: int
+    analyst: str
+
+
+class ConfirmGroupPayload(BaseModel):
+    group_role: str = Field(pattern="^(control|treatment)$")
+
+
+class MemberRosterPayload(BaseModel):
+    requesting_team: str
